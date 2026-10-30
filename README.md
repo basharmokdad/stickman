@@ -9,9 +9,14 @@ one colour accent, 12-16 seconds, vertical 1080x1920 mp4 with sound. No animator
 ```
 -> Claude writes a short story file, renders it, adds sound, checks the frames, and hands you `final.mp4`.
 
+![The Seeds, made by the skill from one idea](docs/the-seeds.jpg)
+
+*The Seeds: "a crowd throws seeds at a man to mock him; he plants every one; years later his orchard feeds them"*
+
 ## Install
 
-1. Copy this folder to your skills folder:
+1. Get it: `git clone https://github.com/basharmokdad/stickman ~/.claude/skills/stickman`
+   (or download the ZIP from GitHub and unzip it into your skills folder:)
    - Claude Code: `~/.claude/skills/stickman` (Windows: `C:\Users\<you>\.claude\skills\stickman`)
 2. Install the requirements once:
    ```
@@ -40,6 +45,8 @@ sound types (`splash.wav`, `thud.mp3`, ...) in a folder and run `python mix.py o
 - `SKILL.md` - the workflow and the engine cheat sheet Claude follows
 - `engine/stickman.js` - fog sky, rig + motions, crowd, props, sea, weather, camera
 - `player.html`, `render.py`, `mix.py`
-- `examples/` - The Seed, The Wave, and a pose sheet
+- `examples/` - The Seeds, The Seed, The Wave, and a pose sheet
+
+Works in Claude Code, and in other agents that read skills (OpenCode etc.): point them at `SKILL.md`.
 
 MIT licensed.
