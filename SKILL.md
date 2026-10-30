@@ -52,8 +52,11 @@ SM.story({
 Timing: `S.seg(t,a,b)` 0..1, `S.es(t,a,b,ease)`, `S.keys(t,[[t,v],...])`, `S.window(t,a,b,edge)` 0->1->0,
 `S.settle(t,t0,amp)` damped wobble, eases `S.ease S.easeIn S.easeOut S.back` (overshoot).
 
-Figures: `S.fig({ x, y, h, f, pose, build, snap })` - `y` is the ground (the lowest body point snaps to it), `f` 1 faces
-right / -1 left, `h` ~270 for an adult. Returns `{ hands: {L, R}, head, R }` to attach props.
+Figures: `S.fig({ x, y, h, f, pose, build, snap, lookAt, color })` - `y` is the ground (the lowest body point snaps to
+it), `f` 1 faces right / -1 left, `h` ~270 for an adult, ~170 for a child (use `build.head` 1.2). Figures are matte
+vinyl: tapered limbs, capsule torso, feet, a thin rim light from the upper left, a soft contact shadow, white oval eyes
+that blink by themselves. `lookAt: [x, y]` points the eyes at anything; `color` greys a figure out (hunger, a memory);
+`shadow: false`, `rim`, `idle: false` are optional. Returns `{ hands: {L, R}, head, R }` to attach props.
 `build: { thick, head, legs, torso, acc: 'cap'|'tuft'|'bun'|'pony' }`. `S.crowd(n, x0, x1, seed, {h})` gives varied
 silhouettes (never draw a crowd of clones).
 
@@ -68,7 +71,7 @@ World: `S.cliff(edgeX, topY, 'left'|'right')`, `S.ground(y)`, `S.block(x,y,w,h)`
 `S.sea(t, { y, chop, waves: [{ x, h, w, lean, curl, dir }], color, alpha, foam })` returns `surface(x)`,
 `S.splash(x, y, p, size)`.
 Props: `S.brick`, `S.tower(x, y, bricksPlaced, {cols})` (each brick drops, lands, squashes - put bricks on beats),
-`S.tree(x, y, {len, angle, ceiling, seed})` -> `.draw(growth)`, `.cover(growth)(x)`, `S.ladder`, `S.door(x,y,w,h,open)`,
+`S.tree(x, y, {len, angle, ceiling, seed, leaf})` (`leaf` 0.5 for small trees) -> `.draw(growth)`, `.cover(growth)(x)`, `S.ladder`, `S.door(x,y,w,h,open)`,
 `S.trophy`, `S.balloon`, `S.ball`, `S.board(x, y, len, angle, color)`, `S.rain(t, amount, floorFn)`,
 `S.lightning(x, y0, y1, a)`, `S.label('DAY 40', x, y, alpha, size)`. Accent colour: `S.ACCENT` (red). Raw canvas: `S.g`.
 
@@ -84,6 +87,7 @@ Props: `S.brick`, `S.tower(x, y, bricksPlaced, {cols})` (each brick drops, lands
 ## Examples
 
 - `examples/the-seed/story.js` - mocked planter, a storm, the tree shelters them (cliffs, tree, rain, labels).
+- `examples/the-seeds/story.js` - they throw seeds at him; he plants every one; an orchard; one red fruit back to a child.
 - `examples/the-wave/story.js` - waiting for the perfect wave vs practising on bad ones (sea, waves, boards, falls).
 - `examples/poses/story.js` - every motion in a grid; open `player.html?story=examples/poses/story.js`.
 

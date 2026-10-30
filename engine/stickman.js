@@ -53,12 +53,12 @@
   S.M = {
     stand: (t = 0) => S.pose({ lean: 0.012 * sin(t * 2.1), tilt: 0.02 * sin(t * 1.3) }),
     walk: (ph, k = 1) => { const w = ph * TAU, a = (ph - 0.07) * TAU;
-      return S.pose({ lean: 0.07 * k, tilt: -0.03 * k, hl: 0.44 * k * sin(w), hr: -0.44 * k * sin(w),
+      return S.pose({ lean: 0.07 * k, tilt: -0.03 * k + 0.035 * k * sin(2 * w + 1), hl: 0.44 * k * sin(w), hr: -0.44 * k * sin(w),
         kl: 0.08 + 0.75 * k * pos(cos(w)), kr: 0.08 + 0.75 * k * pos(-cos(w)),
         sl: -0.38 * k * sin(a), sr: 0.38 * k * sin(a), el: 0.25 + 0.2 * k * pos(-sin(a)), er: 0.25 + 0.2 * k * pos(sin(a)) }); },
     run: (ph, k = 1) => { const w = ph * TAU, a = (ph - 0.06) * TAU;
       const sw = x => x > 0 ? 0.85 * x : 0.5 * x;   // the back leg swings less than the front
-      return S.pose({ lean: 0.3 * k, tilt: -0.12 * k, hl: k * sw(sin(w)), hr: k * sw(-sin(w)),
+      return S.pose({ lean: 0.3 * k, tilt: -0.12 * k + 0.06 * k * sin(2 * w + 0.8), hl: k * sw(sin(w)), hr: k * sw(-sin(w)),
         kl: 0.25 + 1.35 * k * pos(cos(w)), kr: 0.25 + 1.35 * k * pos(-cos(w)),
         sl: -0.85 * k * sin(a), sr: 0.85 * k * sin(a), el: 1.5, er: 1.5, air: 0.035 * k * pos(sin(2 * w)) }); },
     kneel: (k = 1) => S.blend(DEF, { lean: 0.35, tilt: 0.12, hl: 1.45, kl: 1.5, hr: -0.04, kr: 1.72, sl: 0.5, el: 0.3, sr: 0.2, er: 0.3 }, k),
@@ -75,18 +75,22 @@
       kl: 0.2, kr: 0.12, eyes: 'laugh' }, k),
     // throw: 0-0.42 wind-up (lean back, arm up behind), 0.42-0.55 release, then follow-through + settle. S.M.RELEASE = 0.5
     throw: (p) => {
-      const wind = S.es(p, 0, 0.42), rel = S.es(p, 0.42, 0.55, S.easeOut), fol = S.es(p, 0.55, 1);
-      const sr = S.lerp(S.lerp(-0.08, -2.5, wind), 1.35, rel) - 0.6 * fol;
-      return S.pose({ lean: -0.18 * wind + 0.55 * rel - 0.38 * fol, tilt: 0.1 * rel, sr, er: S.lerp(0.9 * wind, 0.05, rel),
-        sl: 0.7 * wind - 0.4 * rel, el: 0.6, hl: 0.25 * rel - 0.15 * wind, kl: 0.3, hr: -0.35 * rel + 0.1 * wind, kr: 0.25 }); },
+      const wind = S.es(p, 0, 0.42), rel = S.back(S.seg(p, 0.42, 0.6)), relE = S.es(p, 0.42, 0.55, S.easeOut), fol = S.es(p, 0.58, 1);
+      const lag = S.es(p, 0.42, 0.52) - S.es(p, 0.5, 0.72);            // the head and forearm trail the snap, then catch up
+      const sr = S.lerp(S.lerp(-0.08, -2.5, wind), 1.35, rel) - 0.55 * fol;
+      return S.pose({ lean: -0.18 * wind + 0.55 * relE - 0.38 * fol, tilt: 0.1 * relE - 0.35 * lag + S.settle(p, 0.62, 0.12, 22, 8),
+        sr, er: S.lerp(0.9 * wind, 0.05, relE) + 0.35 * lag, sl: 0.7 * wind - 0.5 * relE + 0.2 * fol, el: 0.6 + 0.3 * lag,
+        hl: 0.25 * relE - 0.15 * wind, kl: 0.3, hr: -0.35 * relE + 0.1 * wind, kr: 0.25 + 0.2 * relE }); },
     // hold something at the chest while walking (ph) - hands meet in front
     carry: (ph, k = 1) => S.add(S.M.walk(ph, 0.7 * k), { sl: 0.95 - S.M.walk(ph, 0.7 * k).sl, el: 1.15 - S.M.walk(ph, 0.7 * k).el,
       sr: 0.95 - S.M.walk(ph, 0.7 * k).sr, er: 1.15 - S.M.walk(ph, 0.7 * k).er, lean: -0.04 }),
     push: (k = 1) => S.blend(DEF, { lean: 0.42, sl: 1.45, el: 0.1, sr: 1.5, er: 0.1, hl: 0.4, kl: 0.5, hr: -0.5, kr: 0.1 }, k),
     // fall backwards (p 0..1): gravity ease-in, arms fly up, a small bounce at the end. dir -1 = forwards
-    fall: (p, dir = 1) => { const f = S.easeIn(S.clamp(p * 1.15)), b = S.settle(p, 0.87, 0.06, 30, 9);
-      return S.pose({ rot: dir * (-1.5 * f + b), sl: 2.2 * S.es(p, 0, 0.4), sr: 2.6 * S.es(p, 0, 0.35), el: 0.4, er: 0.3,
-        hl: 0.5 * f, kl: 0.3, hr: 0.25 * f, kr: 0.5 * f, eyes: p > 0.2 ? 'wide' : 'dot', tilt: 0.2 * f }); },
+    fall: (p, dir = 1) => { const f = S.easeIn(S.clamp(p * 1.15)), f0 = S.easeIn(S.clamp((p - 0.1) * 1.15)), b = S.settle(p, 0.87, 0.06, 30, 9);
+      const fl = (1 - f) * S.es(p, 0, 0.3);                               // arms flail on the way down
+      return S.pose({ rot: dir * (-1.5 * f + b), sl: 2.2 * S.es(p, 0, 0.4) + 0.35 * fl * sin(p * 34), sr: 2.6 * S.es(p, 0, 0.35) - 0.35 * fl * sin(p * 30 + 1),
+        el: 0.4 + 0.3 * fl, er: 0.3, hl: 0.5 * f, kl: 0.3, hr: 0.25 * f, kr: 0.5 * f, eyes: p > 0.2 ? 'wide' : 'dot',
+        tilt: 0.2 * f + 1.4 * (f - f0) + S.settle(p, 0.87, 0.25, 26, 8) }); },
     // sitting on the ground, legs out front, leaning back on the hands
     sitGround: (k = 1) => S.blend(DEF, { lean: -0.2, hl: 1.5, kl: 0.25, hr: 1.4, kr: 0.45, sl: -0.75, el: 0.1, sr: -0.65, er: 0.1 }, k),
     lying: (ph = 0) => S.pose({ rot: -1.52, sl: 0.3, sr: 0.2, hl: 0.15, kl: 0.25, hr: 0.05, kr: 0.1, eyes: 'closed' }),
@@ -129,37 +133,76 @@
       let m = -1e9;
       for (const k of ['fL', 'fR', 'kL', 'kR', 'hL', 'hR', 'hip', 'sh']) m = Math.max(m, p[k][1]);
       m = Math.max(m, p.head[1] + R);
-      off = -m - lw / 2;
+      off = -m - lw * 0.4;
     }
     const X = o.x, Y = o.y + off - P.air * h;
     for (const k in p) p[k] = [p[k][0] + X, p[k][1] + Y];
     if (o.draw === false) return { hands: { L: p.hL, R: p.hR }, head: p.head, R, p, h };
     g.save();
-    g.strokeStyle = g.fillStyle = o.color || S.INK; g.lineCap = 'round'; g.lineJoin = 'round';
-    if (o.alpha !== undefined) g.globalAlpha = o.alpha;
-    const ln = (pts, w) => { g.lineWidth = w; g.beginPath(); g.moveTo(...pts[0]); for (let i = 1; i < pts.length; i++) g.lineTo(...pts[i]); g.stroke(); };
-    ln([p.hip, p.kL, p.fL], lw); ln([p.hip, p.kR, p.fR], lw);
-    ln([p.hip, p.neck], lw * 1.35 * (b.torso || 1));
-    if ((b.torso || 1) > 1.25) { g.lineWidth = lw * 1.35 * b.torso * 1.12;         // a heavier middle
-      const m = [S.lerp(p.hip[0], p.neck[0], 0.4), S.lerp(p.hip[1], p.neck[1], 0.4)]; g.beginPath(); g.moveTo(...p.hip); g.lineTo(...m); g.stroke(); }
-    ln([p.sh, p.eL, p.hL], lw * 0.9); ln([p.sh, p.eR, p.hR], lw * 0.9);
-    // head + face in the head's own frame (forward = +x)
-    g.translate(...p.head); g.rotate(f * (P.lean + P.tilt) + f * P.rot); g.scale(f, 1);
-    g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
+    const A0 = o.alpha ?? 1; g.globalAlpha = A0;
+    const ink = o.color || S.INK, rimC = o.rim || 'rgba(170,180,196,0.5)';
+    // soft contact shadow on the ground (fades as the figure leaves it)
+    if (o.snap !== false && o.shadow !== false) {
+      const a = 0.34 * Math.max(0, 1 - P.air * 5), cx = (p.fL[0] + p.fR[0] + p.hip[0]) / 3, w = h * 0.24 + Math.abs(p.head[0] - cx) * 0.6;
+      if (a > 0.01) { g.save(); g.translate(cx, o.y); g.scale(1, 0.15);
+        const sg = g.createRadialGradient(0, 0, 0, 0, 0, w); sg.addColorStop(0, `rgba(0,0,0,${a})`); sg.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = sg; g.beginPath(); g.arc(0, 0, w, 0, TAU); g.fill(); g.restore(); }
+    }
+    // tapered capsule a->c (radius ra -> rb) with a thin rim light on the side facing the light (upper left)
+    const LX = -0.55, LY = -0.83;
+    const cap = (a, c, ra, rb, rim = true) => {
+      const dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy) || 1e-6; let nx = -dy / L, ny = dx / L;
+      g.fillStyle = ink; g.beginPath(); g.moveTo(a[0] + nx * ra, a[1] + ny * ra); g.lineTo(c[0] + nx * rb, c[1] + ny * rb);
+      g.lineTo(c[0] - nx * rb, c[1] - ny * rb); g.lineTo(a[0] - nx * ra, a[1] - ny * ra); g.fill();
+      g.beginPath(); g.arc(a[0], a[1], ra, 0, TAU); g.fill(); g.beginPath(); g.arc(c[0], c[1], rb, 0, TAU); g.fill();
+      if (!rim) return;
+      let d = nx * LX + ny * LY; if (d < 0) { nx = -nx; ny = -ny; d = -d; }
+      if (d < 0.15) return;
+      g.strokeStyle = rimC; g.globalAlpha = A0 * Math.min(1, d * 1.2); g.lineCap = 'round'; g.lineWidth = Math.max(1.2, (ra + rb) * 0.13);
+      g.beginPath(); g.moveTo(a[0] + nx * ra * 0.74, a[1] + ny * ra * 0.74); g.lineTo(c[0] + nx * rb * 0.74, c[1] + ny * rb * 0.74); g.stroke();
+      g.globalAlpha = A0;
+    };
+    // a small foot at a right angle to the shin, pointing the way the figure faces
+    const foot = (k, fp) => { const ux = fp[0] - k[0], uy = fp[1] - k[1], L = Math.hypot(ux, uy) || 1;
+      cap(fp, [fp[0] + f * uy / L * h * 0.062, fp[1] - f * ux / L * h * 0.062], lw * 0.4, lw * 0.3, false); };
+    const leg = (hp, k, fp, rim) => { cap(hp, k, lw * 0.68, lw * 0.54, rim); cap(k, fp, lw * 0.54, lw * 0.4, rim); foot(k, fp); };
+    const arm = (sh, e, hd, rim) => { cap(sh, e, lw * 0.56, lw * 0.46, rim); cap(e, hd, lw * 0.46, lw * 0.36, rim);
+      g.fillStyle = ink; g.beginPath(); g.arc(hd[0], hd[1], lw * 0.43, 0, TAU); g.fill(); };
+    const tw = b.torso || 1, chest = [S.lerp(p.hip[0], p.neck[0], 0.62), S.lerp(p.hip[1], p.neck[1], 0.62)];
+    // back limbs, torso (a capsule, fuller at the chest), front leg, head, front arm
+    leg(p.hip, p.kR, p.fR, false); arm(p.sh, p.eR, p.hR, false);
+    cap(p.hip, chest, lw * 0.74 * tw, lw * 0.86 * tw); cap(chest, p.neck, lw * 0.86 * tw, lw * 0.5);
+    leg(p.hip, p.kL, p.fL, true);
+    // head + face in the head's own frame (forward = +x); a breath of secondary motion so heads never freeze
+    const seed = o.seed ?? (o.x * 0.013 + h * 0.007), tt = S.T || 0;
+    const hrot = f * (P.lean + P.tilt + (o.idle === false ? 0 : 0.03 * sin(tt * 1.7 + seed * 5))) + f * P.rot;
+    g.save(); g.translate(...p.head); g.rotate(hrot); g.scale(f, 1);
+    g.fillStyle = g.strokeStyle = ink; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
     if (b.acc === 'cap') { g.beginPath(); g.arc(0, -R * 0.15, R * 1.06, Math.PI * 1.02, Math.PI * 1.98); g.fill(); g.fillRect(0, -R * 0.42, R * 1.75, R * 0.26); }
-    if (b.acc === 'tuft') { g.lineWidth = R * 0.28; for (const a of [-0.5, 0, 0.45]) { g.beginPath(); g.moveTo(sin(a) * R * 0.8, -cos(a) * R * 0.8);
+    if (b.acc === 'tuft') { g.lineWidth = R * 0.28; g.lineCap = 'round'; for (const a of [-0.5, 0, 0.45]) { g.beginPath(); g.moveTo(sin(a) * R * 0.8, -cos(a) * R * 0.8);
       g.lineTo(sin(a) * R * 1.45, -cos(a) * R * 1.45); g.stroke(); } }
     if (b.acc === 'bun') { g.beginPath(); g.arc(-R * 0.55, -R * 0.85, R * 0.45, 0, TAU); g.fill(); }
-    if (b.acc === 'pony') { g.lineWidth = R * 0.4; g.beginPath(); g.moveTo(-R * 0.7, -R * 0.4); g.quadraticCurveTo(-R * 1.6, -R * 0.1, -R * 1.4, R * 0.9); g.stroke(); }
-    const ey = -R * 0.08 + (P.look === 'up' ? -R * 0.32 : P.look === 'down' ? R * 0.3 : 0);
-    g.fillStyle = g.strokeStyle = o.eyeColor || '#f2f2f0';
-    for (const dx of [0.06, 0.44]) {
-      const ex = dx * R;
-      if (P.eyes === 'laugh') { g.lineWidth = R * 0.13; g.beginPath(); g.arc(ex, ey + R * 0.06, R * 0.12, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
-      else if (P.eyes === 'closed') { g.lineWidth = R * 0.1; g.beginPath(); g.moveTo(ex - R * 0.11, ey); g.lineTo(ex + R * 0.11, ey); g.stroke(); }
-      else if (P.eyes === 'sad') { g.beginPath(); g.arc(ex, ey + R * 0.08, R * 0.1, 0, TAU); g.fill(); }
-      else { g.beginPath(); g.arc(ex, ey, R * (P.eyes === 'wide' ? 0.16 : 0.11), 0, TAU); g.fill(); }
+    if (b.acc === 'pony') { g.lineWidth = R * 0.4; g.lineCap = 'round'; g.beginPath(); g.moveTo(-R * 0.7, -R * 0.4); g.quadraticCurveTo(-R * 1.6, -R * 0.1, -R * 1.4, R * 0.9); g.stroke(); }
+    // rim on the head: the light is fixed in the world, so take the head rotation back out of its angle
+    { const la = Math.atan2(LY, LX * f) - hrot * f; g.strokeStyle = rimC; g.lineWidth = Math.max(1.4, R * 0.11); g.lineCap = 'round';
+      g.beginPath(); g.arc(0, 0, R * 0.86, la - 0.95, la + 0.95); g.stroke(); }
+    // eyes: white ovals that blink every few seconds and look up / down / at a point (o.lookAt = [x, y])
+    const bp = ((tt + seed) % 3.4 + 3.4) % 3.4, blink = bp < 0.15 ? Math.abs(bp - 0.075) / 0.075 : 1;
+    let lx = 0, ly = P.look === 'up' ? -0.3 : P.look === 'down' ? 0.28 : 0;
+    if (o.lookAt) { const vx = o.lookAt[0] - p.head[0], vy = o.lookAt[1] - p.head[1], c = cos(-hrot), s2 = sin(-hrot);
+      const rx = (vx * c - vy * s2) * f, ry = vx * s2 + vy * c, L = Math.hypot(rx, ry) || 1; lx = 0.12 * rx / L; ly = 0.28 * ry / L; }
+    const ey = -R * 0.08 + ly * R, eyeC = o.eyeColor || '#f2f2f0';
+    g.fillStyle = g.strokeStyle = eyeC;
+    for (const dx of [0.07, 0.45]) {
+      const ex = (dx + lx) * R;
+      if (P.eyes === 'laugh') { g.lineWidth = R * 0.13; g.lineCap = 'round'; g.beginPath(); g.arc(ex, ey + R * 0.08, R * 0.12, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); }
+      else if (P.eyes === 'closed' || blink < 0.3) { g.lineWidth = R * 0.09; g.lineCap = 'round'; g.beginPath(); g.moveTo(ex - R * 0.09, ey); g.lineTo(ex + R * 0.09, ey); g.stroke(); }
+      else { const w = P.eyes === 'wide' ? 1.3 : P.eyes === 'sad' ? 0.9 : 1, dy = P.eyes === 'sad' ? R * 0.1 : 0;
+        g.beginPath(); g.ellipse(ex, ey + dy, R * 0.085 * w, R * 0.135 * w * blink, 0, 0, TAU); g.fill();
+        if (P.eyes === 'sad') { g.fillStyle = ink; g.beginPath(); g.ellipse(ex, ey + dy - R * 0.13, R * 0.13, R * 0.08, (dx < 0.2 ? 0.35 : -0.35), 0, TAU); g.fill(); g.fillStyle = eyeC; } }
     }
+    g.restore();
+    arm(p.sh, p.eL, p.hL, true);
     g.restore();
     return { hands: { L: p.hL, R: p.hR }, head: p.head, R, p, h };
   };
@@ -319,7 +362,7 @@
     })(x, y, o.angle || 0, o.len || 330, o.width || 46, 0, 0, 0);
     const r2 = S.rng((o.seed || 7) + 4);
     for (const b of T) if (b.d >= 3) for (let k = 0; k < (b.d >= 5 ? 3 : 2); k++)
-      leaves.push({ b, x: b.ex + (r2() - .5) * 70, y: b.ey + (r2() - .5) * 50, r: 38 + r2() * 30, back: r2() < 0.45 });
+      leaves.push({ b, x: b.ex + (r2() - .5) * 70 * (o.leaf || 1), y: b.ey + (r2() - .5) * 50 * (o.leaf || 1), r: (38 + r2() * 30) * (o.leaf || 1), back: r2() < 0.45 });
     const lg = (l, gg) => S.es(gg, l.b.end - 0.06, l.b.end + 0.14);
     return { branches: T, leaves,
       draw(gg) { if (gg <= 0) return; g.lineCap = 'round';
@@ -359,6 +402,7 @@
   function frame(t) {
     if (!GRAIN) { GRAIN = document.createElement('canvas'); GRAIN.width = GRAIN.height = 256; const gc = GRAIN.getContext('2d'), im = gc.createImageData(256, 256), r = S.rng(5);
       for (let i = 0; i < im.data.length; i += 4) { const v = r() * 255; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 14; } gc.putImageData(im, 0, 0); }
+    S.T = t;
     const cam = S.camAt(t), env = STORY.env ? STORY.env(t, S) : {};
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1;
     S.backdrop(t, cam, env);
