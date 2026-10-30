@@ -1,0 +1,7 @@
+out/
+stills/
+*.mp4
+*.wav
+meta.json
+contact_sheet.jpg
+__pycache__/
